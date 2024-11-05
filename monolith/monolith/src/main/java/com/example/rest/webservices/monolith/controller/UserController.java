@@ -3,13 +3,11 @@ package com.example.rest.webservices.monolith.controller;
 import com.example.rest.webservices.monolith.entity.User;
 import com.example.rest.webservices.monolith.exception.UserNotFoundException;
 import com.example.rest.webservices.monolith.repository.UserRepository;
-
 import jakarta.validation.Valid;
-
 import java.net.URI;
-import java.net.http.HttpResponse;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,14 +30,25 @@ public class UserController {
     return userRepository.findAll();
   }
 
+  // Using Hateoas
+  // EntityModel
+  // WebMvcLinkBuilder
   @GetMapping(path = "/users/{id}")
-  public User retrieveUser(@PathVariable int id) {
-    User user =  userRepository.findUser(id);
-    if(user == null) {
-    	throw new UserNotFoundException("id: " + id);
+  public EntityModel<User> retrieveUser(@PathVariable int id) {
+    User user = userRepository.findUser(id);
+    if (user == null) {
+      throw new UserNotFoundException("id: " + id);
     }
-    
-    return user;
+
+    EntityModel<User> entityModel = EntityModel.of(user);
+
+    WebMvcLinkBuilder link = WebMvcLinkBuilder.linkTo(
+      WebMvcLinkBuilder.methodOn(this.getClass()).retrieveAllUsers()
+    );
+
+    entityModel.add(link.withRel("all-users"));
+
+    return entityModel;
   }
 
   @PostMapping(path = "/users")
@@ -52,9 +61,9 @@ public class UserController {
       .toUri();
     return ResponseEntity.created(location).build();
   }
-  
-  @DeleteMapping(path="/users/{id}")
+
+  @DeleteMapping(path = "/users/{id}")
   public void deleteUser(@PathVariable int id) {
-	  userRepository.deleteUserById(id);
+    userRepository.deleteUserById(id);
   }
 }

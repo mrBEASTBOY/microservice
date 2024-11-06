@@ -1,8 +1,10 @@
 package com.example.rest.webservices.monolith.controller;
 
+import com.example.rest.webservices.monolith.entity.Post;
 import com.example.rest.webservices.monolith.entity.User;
 import com.example.rest.webservices.monolith.exception.UserNotFoundException;
-import com.example.rest.webservices.monolith.repository.UserRepository;
+import com.example.rest.webservices.monolith.service.PostService;
+import com.example.rest.webservices.monolith.service.UserService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -19,15 +21,17 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 public class UserController {
-  private UserRepository userRepository;
+  private UserService userService;
+  private PostService postService;
 
-  public UserController(UserRepository userRepository) {
-    this.userRepository = userRepository;
+  public UserController(UserService userService, PostService postService) {
+    this.userService = userService;
+    this.postService = postService;
   }
 
   @GetMapping(path = "/users")
   public List<User> retrieveAllUsers() {
-    return userRepository.findAll();
+    return userService.findAll();
   }
 
   // Using Hateoas
@@ -35,7 +39,7 @@ public class UserController {
   // WebMvcLinkBuilder
   @GetMapping(path = "/users/{id}")
   public EntityModel<User> retrieveUser(@PathVariable int id) {
-    User user = userRepository.findUser(id);
+    User user = userService.findUser(id);
     if (user == null) {
       throw new UserNotFoundException("id: " + id);
     }
@@ -51,9 +55,19 @@ public class UserController {
     return entityModel;
   }
 
+  @GetMapping(path = "/users/{id}/posts")
+  public List<Post> retrievePostsForUser(@PathVariable int id) {
+    User user = userService.findUser(id);
+    if (user == null) {
+      throw new UserNotFoundException("id: " + id);
+    }
+
+    return user.getPosts();
+  }
+
   @PostMapping(path = "/users")
   public ResponseEntity<?> addUser(@Valid @RequestBody User user) {
-    User newUser = userRepository.addUser(user);
+    User newUser = userService.addUser(user);
     URI location = ServletUriComponentsBuilder
       .fromCurrentRequest()
       .path("/{id}")
@@ -62,8 +76,30 @@ public class UserController {
     return ResponseEntity.created(location).build();
   }
 
+  @PostMapping(path = "/users/{id}/posts")
+  public ResponseEntity<?> createPostForUser(
+    @PathVariable int id,
+    @Valid @RequestBody Post post
+  ) {
+    User user = userService.findUser(id);
+
+    if (user == null) {
+      throw new UserNotFoundException("id: " + id);
+    }
+
+    Post newPost = postService.createPostForUser(user, post);
+
+    URI location = ServletUriComponentsBuilder
+      .fromCurrentRequest()
+      .path("/{id}")
+      .buildAndExpand(newPost.getId())
+      .toUri();
+
+    return ResponseEntity.created(location).build();
+  }
+
   @DeleteMapping(path = "/users/{id}")
   public void deleteUser(@PathVariable int id) {
-    userRepository.deleteUserById(id);
+    userService.deleteUserById(id);
   }
 }
